@@ -1,2 +1,3 @@
 # mixqtl
-mixQTL implemented in Python
+
+mixQTL, mixFine, and mixPred implemented in R
