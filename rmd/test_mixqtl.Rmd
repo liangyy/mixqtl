@@ -4,6 +4,15 @@ title: "Test and example run for mixQTL"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 ---
 
+```{r setup}
+rm(list = ls())
+library(dplyr)
+library(ggplot2)
+library(cowplot)
+source('https://gist.githubusercontent.com/liangyy/43912b3ecab5d10c89f9d4b2669871c9/raw/8151c6fe70e3d4ee43d9ce340ecc0eb65172e616/my_ggplot_theme.R')
+th = theme_bw(base_size = 15) + th 
+```
+
 ```{r install_mixqtl}
 devtools::install_github('liangyy/mixqtl', auth_token = '163286e54308901bcc73ac6cce9c03d3a8055e7c')
 ```
@@ -52,6 +61,8 @@ merge$variant_id = dat$geno_name
 
 Previous script: [link](https://github.com/liangyy/project-ase/blob/master/test_scripts/gtex-v8-pipeline/scripts/mixqtl_batch.R)
 
+## Check difference
+
 ```{r load_previous}
 df = read.table('/Users/yanyul/Desktop/mixqtl-test/share_with_francois/example-ENSG00000002834.mixqtl.txt.gz', header = T, stringsAsFactors = F)
 for(i in 1 : ncol(df)) {
@@ -62,9 +73,23 @@ for(i in 1 : ncol(df)) {
 }
 ```
 
-<!-- # Session information  -->
+## Plot significance
 
-<!-- ```{r sinfo} -->
-<!-- sessionInfo() -->
-<!-- ``` -->
+```{r plot}
+df2 = inner_join(df, merge, by = 'variant_id', suffix = c('.old', '.mixqtl'))
+plist = list()
+for(i in c('trc', 'asc', 'meta')) {
+  plist[[length(plist) + 1]] = df2 %>% ggplot() + geom_point(aes_string(x = paste0('bhat.', i, '.old'), y = paste0('bhat.', i, '.mixqtl')), alpha = .1) + th  + coord_equal()
+}
+for(i in c('trc', 'asc', 'meta')) {
+  plist[[length(plist) + 1]] = df2 %>% ggplot() + geom_point(aes_string(x = paste0('pval.', i, '.old'), y = paste0('pval.', i, '.mixqtl')), alpha = .1) + scale_x_log10() + scale_y_log10() + th + coord_equal()
+}
+plot_grid(plotlist = plist)
+```
+
+# Session information
+
+```{r sinfo}
+sessionInfo()
+```
 
