@@ -26,7 +26,7 @@ regress_against_covariate = function(trc, lib_size, covariates) {
   out = effect_size_trc_with_covariates_get_coef_refactored(trc, lib_size, covariates)
   selected = abs(out[-1, 3]) > 2
   if(sum(selected) > 0) {
-    out = effect_size_trc_with_covariates_get_coef_refactored(trc, lib_size, covariates)
+    out = effect_size_trc_with_covariates_get_coef_refactored(trc, lib_size, covariates[selected,])
     indiv_offset = t(covariates[selected, -1]) %*% out[-1, 1]
   } else {
     indiv_offset = rep(0, ncol(covariates) - 1)  # t(covariates[selected, -1]) %*% out[-1, 1]
