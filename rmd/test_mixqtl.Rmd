@@ -1,0 +1,22 @@
+---
+title: "Test and example run for mixQTL"
+# author: Yanyu Liang
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+```{r install_mixqtl}
+devtools::install_github('liangyy/mixqtl', auth_token = '163286e54308901bcc73ac6cce9c03d3a8055e7c')
+```
+
+# Load data and package
+
+```{r load_data}
+library(mixqtl)
+dat = readRDS('/Users/yanyul/Desktop/mixqtl-test/share_with_francois/example-input.ENSG00000002834.1.rds')
+covariates = read.table('/Users/yanyul/Desktop/mixqtl-test/share_with_francois/covariate-combined.txt', header = T, stringsAsFactors = F)
+covariate_names = stringr::str_replace(colnames(covariates), '\\.', '-')
+covariates = cbind(covariates[, 1], covariates[, match(colnames(dat$geno1_b), as.character(covariate_names))])
+x1 = as.numeric(dat$geno1_b)
+x2 = as.numeric(dat$geno2_b)
+indiv_offset = regress_against_covariate(dat$trc_g, dat$nlib, covariates)
+```

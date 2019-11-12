@@ -1,0 +1,7 @@
+---
+title: "Home"
+# author: Yanyu Liang
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+* Test run on mixQTL [link](test_mixqtl.html)
