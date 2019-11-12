@@ -2,7 +2,7 @@
 
 mixQTL, mixFine, and mixPred implemented in R
 
-This package serves as runnable prototypes and proof-of-principle.
+This package serves as runnable prototype and proof-of-principle.
 
 
 # How to use
