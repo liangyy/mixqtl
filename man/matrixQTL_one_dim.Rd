@@ -7,25 +7,25 @@
 matrixQTL_one_dim(Y, X, n)
 }
 \arguments{
-\item{Y}{response to regress against (dimension = N x 1)}
+\item{Y}{response to regress against (dimension = N x K)}
 
 \item{X}{P predictors to perform regression separately (dimension = N x P)}
 
-\item{n}{sample size (dimension = P x 1)}
+\item{n}{sample size (dimension = P x K)}
 }
 \value{
 a list of summary statistics
-        beta_hat: estimated b, b_hat (dimension = 1 x P)
-        beta_se: standard deviation of b_hat (dimension = 1 x P)
+        beta_hat: estimated b, b_hat (dimension = K x P)
+        beta_se: standard deviation of b_hat (dimension = K x P)
 }
 \description{
-For each column i in X, solve Y = X_i b_i + e as least squares problem and output estimated effect size and standard deviation
+For each column i in X, solve Y_k = X_i b_i + e as least squares problem and output estimated effect size and standard deviation
 }
 \examples{
 matrixQTL_one_dim(
-  Y = matrix(rnorm(100), ncol = 1),
+  Y = matrix(rnorm(300), ncol = 3),
   X = matrix(sample(c(0, 0.5, 1), 200, replace = TRUE), ncol = 2),
-  n = rep(100, 2)
+  n = matrix(100, ncol = 2, nrow = 3)
 )
 
 }

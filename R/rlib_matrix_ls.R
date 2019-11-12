@@ -37,7 +37,7 @@ matrix_ls_trc = function(trc, lib_size, x, cov, trc_cutoff = 20) {
   sample_size = nrow(x_filtered)
   intercept_mat = matrix(1, nrow = nrow(x_filtered), ncol = ncol(x_filtered))
   if(sample_size > 2 & ncol(x_filtered) > 0) {
-    out = matrixQTL_two_dim(matrix(trc, ncol = 1), x_filtered, intercept_mat, rep(sample_size, ncol(x_filtered)))
+    out = matrixQTL_two_dim(matrix(trc, ncol = 1), x_filtered, intercept_mat, matrix(sample_size, ncol = ncol(x_filtered), nrow = 1))
     output$beta_hat[, !mono_ind] = t(out$beta1_hat)
     output$beta_se[, !mono_ind] = t(out$beta1_se)
   }
@@ -92,7 +92,7 @@ matrix_ls_asc = function(asc1, asc2, x, asc_cutoff = 5, weight_cap = 100, asc_ca
   if(sample_size > 2 & ncol(x_filtered) > 0) {
     asc = diag(sqrt(weights)) %*% asc
     x_filtered = diag(sqrt(weights)) %*% x_filtered
-    out = matrixQTL_one_dim(matrix(asc, ncol = 1), x_filtered, rep(sample_size, ncol(x_filtered)))
+    out = matrixQTL_one_dim(matrix(asc, ncol = 1), x_filtered, matrix(sample_size, ncol = ncol(x_filtered), nrow = 1))
     output$beta_hat[, !mono_ind] = t(out$beta_hat)
     output$beta_se[, !mono_ind] = t(out$beta_se)
   }
@@ -102,21 +102,21 @@ matrix_ls_asc = function(asc1, asc2, x, asc_cutoff = 5, weight_cap = 100, asc_ca
 
 #' Solve Y = Xb + e in matrix form
 #'
-#' For each column i in X, solve Y = X_i b_i + e as least squares problem and output estimated effect size and standard deviation
+#' For each column i in X, solve Y_k = X_i b_i + e as least squares problem and output estimated effect size and standard deviation
 #'
-#' @param Y response to regress against (dimension = N x 1)
+#' @param Y response to regress against (dimension = N x K)
 #' @param X P predictors to perform regression separately (dimension = N x P)
-#' @param n sample size (dimension = P x 1)
+#' @param n sample size (dimension = P x K)
 #'
 #' @return a list of summary statistics
-#'         beta_hat: estimated b, b_hat (dimension = 1 x P)
-#'         beta_se: standard deviation of b_hat (dimension = 1 x P)
+#'         beta_hat: estimated b, b_hat (dimension = K x P)
+#'         beta_se: standard deviation of b_hat (dimension = K x P)
 #'
 #' @examples
 #' matrixQTL_one_dim(
-#'   Y = matrix(rnorm(100), ncol = 1),
+#'   Y = matrix(rnorm(300), ncol = 3),
 #'   X = matrix(sample(c(0, 0.5, 1), 200, replace = TRUE), ncol = 2),
-#'   n = rep(100, 2)
+#'   n = matrix(100, ncol = 2, nrow = 3)
 #' )
 #'
 #' @export
@@ -130,14 +130,14 @@ matrixQTL_one_dim = function(Y, X, n) {
   # for each y_k x_p pair run y ~ -1 + x
   # betahat: p by k
   # betase: p by k
-  if(dim(Y)[1] != dim(X)[1] | length(n) != dim(X)[2]) {
+  if(dim(Y)[1] != dim(X)[1] | dim(n)[2] != dim(X)[2]) {
     message('Wrong dimension')
     return(NULL)
   }
   X_tensor <- to.tensor(as.vector(X), c(i = dim(X)[1], j = dim(X)[2]))
   # Y_tensor <- to.tensor(as.vector(Y), c(i = dim(Y)[1], j = dim(Y)[2]))
   Y_tensor <- to.tensor(as.vector(Y), c(i = dim(Y)[1], k = dim(Y)[2]))
-  n_tensor <- to.tensor(n, c(j = length(n)))
+  n_tensor <- to.tensor(as.vector(n), c(j = dim(n)[2], k = dim(n)[1]))
   YtX_tensor = einstein.tensor(X_tensor, by = 'j', Y_tensor)
   # YtX_tensor = mul.tensor(X_tensor, i = 'i', Y = Y_tensor)
   XtX_tensor = einstein.tensor(X_tensor, by = 'j', X_tensor)
@@ -160,25 +160,25 @@ matrixQTL_one_dim = function(Y, X, n) {
 
 #' Solve Y = X1 b1 + X2 b2 + e in matrix form
 #'
-#' For each column i in X, solve Y = X_1i b_1i + X_2i b_2i + e as least squares problem and output estimated effect size and standard deviation
+#' For each column i in X, solve Y_k = X_1i b_1i + X_2i b_2i + e as least squares problem and output estimated effect size and standard deviation
 #'
-#' @param Y response to regress against (dimension = N x 1)
+#' @param Y response to regress against (dimension = N x K)
 #' @param X1 P predictors (as the first predictor) to perform regression separately (dimension = N x P)
 #' @param X2 P predictors (as the second predictor) to perform regression separately (dimension = N x P)
-#' @param n sample size (dimension = P x 1)
+#' @param n sample size (dimension = P x K)
 #'
 #' @return a list of summary statistics
-#'         beta1_hat: estimated b1, b1_hat (dimension = 1 x P)
-#'         beta1_se: standard deviation of b1_hat (dimension = 1 x P)
-#'         beta2_hat: estimated b2, b2_hat (dimension = 1 x P)
-#'         beta2_se: standard deviation of b2_hat (dimension = 1 x P)
+#'         beta1_hat: estimated b1, b1_hat (dimension = K x P)
+#'         beta1_se: standard deviation of b1_hat (dimension = K x P)
+#'         beta2_hat: estimated b2, b2_hat (dimension = K x P)
+#'         beta2_se: standard deviation of b2_hat (dimension = K x P)
 #'
 #' @examples
 #' matrixQTL_two_dim(
-#'   Y = matrix(rnorm(100), ncol = 1),
+#'   Y = matrix(rnorm(100), ncol = 3),
 #'   X1 = matrix(sample(c(0, 0.5, 1), 200, replace = TRUE), ncol = 2),
 #'   X2 = matrix(sample(c(0, 0.5, 1), 200, replace = TRUE), ncol = 2),
-#'   n = rep(100, 2)
+#'   n = matrix(200, ncol = 2, nrow = 3)
 #' )
 #'
 #' @export
@@ -195,7 +195,7 @@ matrixQTL_two_dim = function(Y, X1, X2, n) {
   # betase1: p by k
   # betahat2: p by k
   # betase2: p by k
-  if(dim(Y)[1] != dim(X1)[1] | length(n) != dim(X1)[2] | dim(Y)[1] != dim(X2)[1]) {
+  if(dim(Y)[1] != dim(X1)[1] | dim(n)[2] != dim(X1)[2] | dim(Y)[1] != dim(X2)[1]) {
     message('Wrong dimension')
     return(NULL)
   }
@@ -203,7 +203,7 @@ matrixQTL_two_dim = function(Y, X1, X2, n) {
   X2_tensor <- to.tensor(as.vector(X2), c(i = dim(X2)[1], j = dim(X2)[2]))
   # Y_tensor <- to.tensor(as.vector(Y), c(i = dim(Y)[1], j = dim(Y)[2]))
   Y_tensor <- to.tensor(as.vector(Y), c(i = dim(Y)[1], k = dim(Y)[2]))
-  n_tensor <- to.tensor(n, c(j = length(n)))
+  n_tensor <- to.tensor(as.vector(n), c(j = dim(n)[2], k = dim(n)[1]))
 
   T1_tensor = einstein.tensor(X1_tensor, by = 'j', Y_tensor)
   T2_tensor = einstein.tensor(X2_tensor, by = 'j', Y_tensor)
@@ -268,6 +268,34 @@ harmonic_sum_ = function(x, y) {
   1 / (1 / x + 1 / y)
 }
 
+#' Solve Y = X1 b1 + X2 b2 + e in matrix form
+#'
+#' For each column i in X, solve Y = X_1i b_1i + X_2i b_2i + e as least squares problem and output estimated effect size and standard deviation
+#'
+#' @param trc list of effect size estimates and standard deviation (e.g. output of matrix_ls_trc)
+#' @param asc list of effect size estimates and standard deviation (e.g. output of matrix_ls_asc)
+#'
+#' @return a list of summary statistics and p-values obtained from trc, asc, and meta-analysis of the two
+#'         the object within list is named by the method (trc, asc, and meta) and each of which includes
+#'         pval (p-value), stat (test statistic), stat_type (z-value or t-value),
+#'         bhat (effect size estimate), se (standard deviation of effect size),
+#'         method (only for 'meta' object showing if the result is from 'trc', 'asc', or 'meta')
+#'
+#' @examples
+#' meta_analyze(
+#'   trc = list(
+#'     beta_hat = matrix(rnorm(100), ncol = 20),
+#'     beta_se = abs(matrix(rnorm(100), ncol = 20)),
+#'     sample_size = 100
+#'   ),
+#'   asc = list(
+#'     beta_hat = matrix(rnorm(100), ncol = 20),
+#'     beta_se = abs(matrix(rnorm(100), ncol = 20)),
+#'     sample_size = 100
+#'   )
+#' )
+#'
+#' @export
 meta_analyze = function(trc, asc) {
   df = list(
     beta_trc = trc$beta_hat, beta_se_trc = trc$beta_se, sample_size_trc = trc$sample_size,
