@@ -1,7 +1,8 @@
 ---
-title: "Home"
+title: "Example and test runs of `mixqtl`"
 # author: Yanyu Liang
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: "`r paste('Last update:', format(Sys.time(), '%b %d, %Y'))`"
 ---
 
 * Test run on mixQTL [link](test_mixqtl.html)
+* Test run on mixFine [link](test_mixfine.html)

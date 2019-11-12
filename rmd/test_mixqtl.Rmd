@@ -25,8 +25,6 @@ dat = readRDS('/Users/yanyul/Desktop/mixqtl-test/share_with_francois/example-inp
 covariates = read.table('/Users/yanyul/Desktop/mixqtl-test/share_with_francois/covariate-combined.txt', header = T, stringsAsFactors = F)
 covariate_names = stringr::str_replace(colnames(covariates), '\\.', '-')
 covariates = cbind(covariates[, 1], covariates[, match(colnames(dat$geno1_b), as.character(covariate_names))])
-x1 = as.numeric(dat$geno1_b)
-x2 = as.numeric(dat$geno2_b)
 indiv_offset = regress_against_covariate(dat$trc_g, dat$nlib, covariates)
 geno1 = t(dat$geno1_b)
 geno2 = t(dat$geno2_b)
