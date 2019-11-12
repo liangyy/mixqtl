@@ -1,5 +1,5 @@
 name: "mixqtl"
-output_dir: "../docs"
+output_dir: ".."
 include: [".nojekyll"]
 exclude: ["include"]
 navbar:
