@@ -6,3 +6,4 @@ date: "`r paste('Last update:', format(Sys.time(), '%b %d, %Y'))`"
 
 * Test run on mixQTL [link](test_mixqtl.html)
 * Test run on mixFine [link](test_mixfine.html)
+* Test run on mixPred [link](test_mixpred.html)

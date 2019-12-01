@@ -1,0 +1,103 @@
+---
+title: "Test and example run for mixPred"
+# author: Yanyu Liang
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+```{r setup}
+rm(list = ls())
+library(dplyr)
+library(ggplot2)
+library(data.table)
+options(datatable.fread.datatable = F)
+library(tictoc)
+library(pander)
+source('https://gist.githubusercontent.com/liangyy/43912b3ecab5d10c89f9d4b2669871c9/raw/8151c6fe70e3d4ee43d9ce340ecc0eb65172e616/my_ggplot_theme.R')
+th = theme_bw(base_size = 15) + th 
+subset_var_here = function(genotype, hapmap_snp) {
+  out_geno = genotype
+  is_hapmap = genotype$var_name %in% hapmap_snp
+  out_geno$var_name = out_geno$var_name[is_hapmap]
+  out_geno$h1 = out_geno$h1[is_hapmap, ]
+  out_geno$h2 = out_geno$h2[is_hapmap, ]
+  out_geno
+}
+set.seed(2019)
+```
+
+```{r install_mixqtl}
+devtools::install_github('liangyy/mixqtl', auth_token = '163286e54308901bcc73ac6cce9c03d3a8055e7c')
+```
+
+# Load data and package and run
+
+```{r load_data}
+library(mixqtl)
+data_collector = readRDS('/Users/yanyul/Desktop/mixqtl-test/mixpred/data-ntest5-ratio0.2.m1-replicate1.rds')
+hm3snp = fread('/Users/yanyul/Desktop/mixqtl-test/mixpred/w_hm3_kept_gtexID.snplist')
+train = data_collector$train
+test = data_collector$test
+train$genotype = subset_var_here(train$genotype, hm3snp$SNP)
+test$genotype = subset_var_here(test$genotype, hm3snp$SNP)
+
+# prepare genotypes 
+h1 = t(train$genotype$h1); h1[is.na(h1)] = 0.5
+h2 = t(train$genotype$h2); h2[is.na(h2)] = 0.5
+h1test = t(test$genotype$h1); h1test[is.na(h1test)] = 0.5
+h2test = t(test$genotype$h2); h2test[is.na(h2test)] = 0.5
+Xtest = (h1test + h2test) / 2
+
+tic('run mixPred: ')
+mod = mixpred(
+  h1, 
+  h2, 
+  train$readcount$observed$y1, 
+  train$readcount$observed$y2, 
+  train$readcount$observed$y1 + train$readcount$observed$y2 + train$readcount$observed$ystar,
+  train$readcount$observed$Ti_lib, 
+  trc_cutoff = 0, 
+  asc_cutoff = 0, 
+  weight_cap = Inf, 
+  asc_cap = Inf
+)
+toc()
+ypred = Xtest %*% mod$beta[-1]
+```
+
+# Load results generated from previous script
+
+Previous script: [link](https://github.com/liangyy/project-ase/blob/master/test_scripts/multisnp_model/prediction-refactorized/scripts/mixnet_metapred_fitincept_batch.R)
+
+
+```{r load result}
+mod2 = readRDS('/Users/yanyul/Desktop/mixqtl-test/mixpred/mixnet_metapred_fitincept--predictor-ntest5-ratio0.2.m1-replicate1.rds')
+ypred2 = readRDS('/Users/yanyul/Desktop/mixqtl-test/mixpred/mixnet_metapred_fitincept--ypred-ntest5-ratio0.2.m1-replicate1.rds')
+```
+
+## Plot weights
+
+```{r plot}
+plot(mod2$beta, mod$beta, xlab = 'previous script', ylab = 'mixpred', main = 'weights')
+```
+
+## Plot predicted expression on test set
+
+```{r plot2}
+plot(ypred2$ypred, ypred, xlab = 'previous script', ylab = 'mixpred', main = 'predicted expression')
+```
+
+## Compute correlation between observed and predicted on test set
+
+```{r cor}
+data.frame(
+  type = c('previous script', 'mixpred'),
+  cor = c(cor(ypred2$ypred, ypred2$y), cor(ypred, ypred2$y))
+) %>% pander
+```
+
+# Session information
+
+```{r sinfo}
+sessionInfo()
+```
+

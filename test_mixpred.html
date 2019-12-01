@@ -11,7 +11,7 @@
 
 
 
-<title>Example and test runs of mixqtl</title>
+<title>Test and example run for mixPred</title>
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -404,17 +404,159 @@ div.tocify {
 
 
 
-<h1 class="title toc-ignore">Example and test runs of <code>mixqtl</code></h1>
-<h4 class="date">Last update: Dec 01, 2019</h4>
+<h1 class="title toc-ignore">Test and example run for mixPred</h1>
+<h4 class="date">01 December, 2019</h4>
 
 </div>
 
 
-<ul>
-<li>Test run on mixQTL <a href="test_mixqtl.html">link</a></li>
-<li>Test run on mixFine <a href="test_mixfine.html">link</a></li>
-<li>Test run on mixPred <a href="test_mixpred.html">link</a></li>
-</ul>
+<pre class="r"><code>rm(list = ls())
+library(dplyr)
+library(ggplot2)
+library(data.table)
+options(datatable.fread.datatable = F)
+library(tictoc)
+library(pander)
+source(&#39;https://gist.githubusercontent.com/liangyy/43912b3ecab5d10c89f9d4b2669871c9/raw/8151c6fe70e3d4ee43d9ce340ecc0eb65172e616/my_ggplot_theme.R&#39;)
+th = theme_bw(base_size = 15) + th 
+subset_var_here = function(genotype, hapmap_snp) {
+  out_geno = genotype
+  is_hapmap = genotype$var_name %in% hapmap_snp
+  out_geno$var_name = out_geno$var_name[is_hapmap]
+  out_geno$h1 = out_geno$h1[is_hapmap, ]
+  out_geno$h2 = out_geno$h2[is_hapmap, ]
+  out_geno
+}
+set.seed(2019)</code></pre>
+<pre class="r"><code>devtools::install_github(&#39;liangyy/mixqtl&#39;, auth_token = &#39;163286e54308901bcc73ac6cce9c03d3a8055e7c&#39;)</code></pre>
+<pre><code>## Skipping install of &#39;mixqtl&#39; from a github remote, the SHA1 (1f09be5c) has not changed since last install.
+##   Use `force = TRUE` to force installation</code></pre>
+<div id="load-data-and-package-and-run" class="section level1">
+<h1><span class="header-section-number">1</span> Load data and package and run</h1>
+<pre class="r"><code>library(mixqtl)
+data_collector = readRDS(&#39;/Users/yanyul/Desktop/mixqtl-test/mixpred/data-ntest5-ratio0.2.m1-replicate1.rds&#39;)
+hm3snp = fread(&#39;/Users/yanyul/Desktop/mixqtl-test/mixpred/w_hm3_kept_gtexID.snplist&#39;)
+train = data_collector$train
+test = data_collector$test
+train$genotype = subset_var_here(train$genotype, hm3snp$SNP)
+test$genotype = subset_var_here(test$genotype, hm3snp$SNP)
+
+# prepare genotypes 
+h1 = t(train$genotype$h1); h1[is.na(h1)] = 0.5
+h2 = t(train$genotype$h2); h2[is.na(h2)] = 0.5
+h1test = t(test$genotype$h1); h1test[is.na(h1test)] = 0.5
+h2test = t(test$genotype$h2); h2test[is.na(h2test)] = 0.5
+Xtest = (h1test + h2test) / 2
+
+tic(&#39;run mixPred: &#39;)
+mod = mixpred(
+  h1, 
+  h2, 
+  train$readcount$observed$y1, 
+  train$readcount$observed$y2, 
+  train$readcount$observed$y1 + train$readcount$observed$y2 + train$readcount$observed$ystar,
+  train$readcount$observed$Ti_lib, 
+  trc_cutoff = 0, 
+  asc_cutoff = 0, 
+  weight_cap = Inf, 
+  asc_cap = Inf
+)
+toc()</code></pre>
+<pre><code>## run mixPred: : 10.977 sec elapsed</code></pre>
+<pre class="r"><code>ypred = Xtest %*% mod$beta[-1]</code></pre>
+</div>
+<div id="load-results-generated-from-previous-script" class="section level1">
+<h1><span class="header-section-number">2</span> Load results generated from previous script</h1>
+<p>Previous script: <a href="https://github.com/liangyy/project-ase/blob/master/test_scripts/multisnp_model/prediction-refactorized/scripts/mixnet_metapred_fitincept_batch.R">link</a></p>
+<pre class="r"><code>mod2 = readRDS(&#39;/Users/yanyul/Desktop/mixqtl-test/mixpred/mixnet_metapred_fitincept--predictor-ntest5-ratio0.2.m1-replicate1.rds&#39;)
+ypred2 = readRDS(&#39;/Users/yanyul/Desktop/mixqtl-test/mixpred/mixnet_metapred_fitincept--ypred-ntest5-ratio0.2.m1-replicate1.rds&#39;)</code></pre>
+<div id="plot-weights" class="section level2">
+<h2><span class="header-section-number">2.1</span> Plot weights</h2>
+<pre class="r"><code>plot(mod2$beta, mod$beta, xlab = &#39;previous script&#39;, ylab = &#39;mixpred&#39;, main = &#39;weights&#39;)</code></pre>
+<p><img src="test_mixpred_files/figure-html/plot-1.png" width="672" /></p>
+</div>
+<div id="plot-predicted-expression-on-test-set" class="section level2">
+<h2><span class="header-section-number">2.2</span> Plot predicted expression on test set</h2>
+<pre class="r"><code>plot(ypred2$ypred, ypred, xlab = &#39;previous script&#39;, ylab = &#39;mixpred&#39;, main = &#39;predicted expression&#39;)</code></pre>
+<p><img src="test_mixpred_files/figure-html/plot2-1.png" width="672" /></p>
+</div>
+<div id="compute-correlation-between-observed-and-predicted-on-test-set" class="section level2">
+<h2><span class="header-section-number">2.3</span> Compute correlation between observed and predicted on test set</h2>
+<pre class="r"><code>data.frame(
+  type = c(&#39;previous script&#39;, &#39;mixpred&#39;),
+  cor = c(cor(ypred2$ypred, ypred2$y), cor(ypred, ypred2$y))
+) %&gt;% pander</code></pre>
+<table style="width:38%;">
+<colgroup>
+<col width="25%" />
+<col width="12%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="center">type</th>
+<th align="center">cor</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">previous script</td>
+<td align="center">0.261</td>
+</tr>
+<tr class="even">
+<td align="center">mixpred</td>
+<td align="center">0.2582</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div id="session-information" class="section level1">
+<h1><span class="header-section-number">3</span> Session information</h1>
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 3.4.0 (2017-04-21)
+## Platform: x86_64-apple-darwin16.5.0 (64-bit)
+## Running under: macOS  10.13.6
+## 
+## Matrix products: default
+## BLAS: /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib
+## LAPACK: /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib
+## 
+## locale:
+## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] pander_0.6.3       data.table_1.10.4  mixqtl_0.1        
+## [4] tictoc_1.0         cowplot_1.0.0.9000 ggplot2_3.2.1     
+## [7] dplyr_0.8.3       
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_1.0.1           lattice_0.20-35      prettyunits_1.0.2   
+##  [4] ps_1.3.0             assertthat_0.2.1     glmnet_2.0-18       
+##  [7] rprojroot_1.3-2      digest_0.6.21        packrat_0.4.8-1     
+## [10] foreach_1.4.4        R6_2.4.0             backports_1.1.4     
+## [13] stats4_3.4.0         evaluate_0.13        pillar_1.4.2        
+## [16] rlang_0.4.1          lazyeval_0.2.2       curl_3.3            
+## [19] rstudioapi_0.10      callr_3.2.0          Matrix_1.2-11       
+## [22] rmarkdown_1.12       desc_1.2.0           devtools_2.2.1      
+## [25] stringr_1.4.0        loo_2.0.0            munsell_0.5.0       
+## [28] compiler_3.4.0       xfun_0.6             rstan_2.18.2        
+## [31] pkgconfig_2.0.2      pkgbuild_1.0.6       htmltools_0.3.6     
+## [34] tidyselect_0.2.5     tibble_2.1.3         tensorA_0.36        
+## [37] gridExtra_2.3        codetools_0.2-15     matrixStats_0.54.0  
+## [40] crayon_1.3.4         withr_2.1.2          grid_3.4.0          
+## [43] gtable_0.3.0         magrittr_1.5         StanHeaders_2.18.0-1
+## [46] scales_1.0.0         cli_1.1.0            stringi_1.2.4       
+## [49] fs_1.3.1             remotes_2.1.0        testthat_2.3.0      
+## [52] ellipsis_0.3.0       iterators_1.0.10     tools_3.4.0         
+## [55] glue_1.3.1           susieR_0.7.1         purrr_0.3.2         
+## [58] yaml_2.2.0           processx_3.3.0       pkgload_1.0.2       
+## [61] parallel_3.4.0       inline_0.3.15        colorspace_1.4-0    
+## [64] sessioninfo_1.1.1    memoise_1.1.0        knitr_1.22          
+## [67] usethis_1.5.1</code></pre>
+</div>
 
 
 
