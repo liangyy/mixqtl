@@ -11,7 +11,7 @@
 
 
 
-<title>Test and example run for mixQTL</title>
+<title>Test and example run for single-SNP simulation</title>
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -404,131 +404,89 @@ div.tocify {
 
 
 
-<h1 class="title toc-ignore">Test and example run for mixQTL</h1>
+<h1 class="title toc-ignore">Test and example run for single-SNP simulation</h1>
 <h4 class="date">02 December, 2019</h4>
 
 </div>
 
 
-<pre class="r"><code>rm(list = ls())
+<pre class="r"><code>set.seed(1)
+rm(list = ls())
 library(dplyr)
 library(ggplot2)
 library(cowplot)
+library(tictoc)
 source(&#39;https://gist.githubusercontent.com/liangyy/43912b3ecab5d10c89f9d4b2669871c9/raw/8151c6fe70e3d4ee43d9ce340ecc0eb65172e616/my_ggplot_theme.R&#39;)
 th = theme_bw(base_size = 15) + th </code></pre>
 <pre class="r"><code>devtools::install_github(&#39;liangyy/mixqtl&#39;, auth_token = &#39;163286e54308901bcc73ac6cce9c03d3a8055e7c&#39;)</code></pre>
-<pre><code>## Skipping install of &#39;mixqtl&#39; from a github remote, the SHA1 (fbbdb311) has not changed since last install.
+<pre><code>## Skipping install of &#39;mixqtl&#39; from a github remote, the SHA1 (1f09be5c) has not changed since last install.
 ##   Use `force = TRUE` to force installation</code></pre>
-<div id="load-data-and-package" class="section level1">
-<h1><span class="header-section-number">1</span> Load data and package</h1>
-<pre class="r"><code>library(mixqtl)
-dat = readRDS(&#39;/Users/yanyul/Desktop/mixqtl-test/share_with_francois/example-input.ENSG00000002834.1.rds&#39;)
-covariates = read.table(&#39;/Users/yanyul/Desktop/mixqtl-test/share_with_francois/covariate-combined.txt&#39;, header = T, stringsAsFactors = F)
-covariate_names = stringr::str_replace(colnames(covariates), &#39;\\.&#39;, &#39;-&#39;)
-covariates = cbind(covariates[, 1], covariates[, match(colnames(dat$geno1_b), as.character(covariate_names))])
-indiv_offset = regress_against_covariate(dat$trc_g, dat$nlib, covariates)
-geno1 = t(dat$geno1_b)
-geno2 = t(dat$geno2_b)
-class(geno1) = &#39;numeric&#39;
-class(geno2) = &#39;numeric&#39;
-is_na = is.na(geno1) | is.na(geno2)
-geno1 = impute_geno(geno1)
-geno2 = impute_geno(geno2)
-geno1[is_na] = (geno1[is_na] + geno2[is_na]) / 2
-geno2[is_na] = geno1[is_na]
-
-df = data.frame(y1 = dat$ase1_g, y2 = dat$ase2_g, trc = dat$trc_g, Ti_lib = dat$nlib) %&gt;% mutate(y_trc = trc, lib_size = Ti_lib, cov_offset = indiv_offset, y_ase1 = y1, y_ase2 = y2)
-# mutate(y_trc = log(trc / Ti_lib / 2) - indiv_offset, y_ase = log(y1 / y2)) 
-
-trc_g = (geno1 + geno2) / 2
-ase_g = geno1 - geno2
-ase_g[is_na] = 0
-
-trc_estimate = matrix_ls_trc(df$y_trc, df$lib_size, trc_g, indiv_offset, trc_cutoff = 100)
-ase_estimate = matrix_ls_asc(df$y_ase1, df$y_ase2, ase_g, asc_cutoff = 50, weight_cap = 10, asc_cap = 1000)
-
-meta_result = meta_analyze(trc_estimate, ase_estimate)
-meta_list = list()
-for(i in names(meta_result)) {
-  d = as.data.frame(lapply(meta_result[[i]], t))
-  colnames(d) = paste0(colnames(d), &#39;.&#39;, i)
-  meta_list[[length(meta_list) + 1]] = d
-}
-merge = do.call(cbind, meta_list)
-merge$variant_id = dat$geno_name</code></pre>
-</div>
-<div id="test-wrapper-function-mixqtl" class="section level1">
-<h1><span class="header-section-number">2</span> Test wrapper function <code>mixqtl</code></h1>
-<pre class="r"><code>mix_estimate = mixqtl(geno1, geno2, df$y_ase1, df$y_ase2, df$y_trc, df$lib_size, cov_offset = indiv_offset, trc_cutoff = 100, asc_cutoff = 50, weight_cap = 10, asc_cap = 1000)
-mix_estimate$variant_id = dat$geno_name</code></pre>
-</div>
-<div id="load-results-generated-from-previous-script" class="section level1">
-<h1><span class="header-section-number">3</span> Load results generated from previous script</h1>
-<p>Previous script: <a href="https://github.com/liangyy/project-ase/blob/master/test_scripts/gtex-v8-pipeline/scripts/mixqtl_batch.R">link</a></p>
-<div id="check-difference" class="section level2">
-<h2><span class="header-section-number">3.1</span> Check difference</h2>
-<pre class="r"><code>df = read.table(&#39;/Users/yanyul/Desktop/mixqtl-test/share_with_francois/example-ENSG00000002834.mixqtl.txt.gz&#39;, header = T, stringsAsFactors = F)
-for(i in 1 : ncol(df)) {
-  if(is.character(df[1, i])) {
-    next
+<pre class="r"><code>library(mixqtl)</code></pre>
+<div id="simulation-workflow" class="section level1">
+<h1><span class="header-section-number">1</span> Simulation workflow</h1>
+<pre class="r"><code>mygene_list = list()
+mygene_list[[1]] = create_gene(theta_dist = list(type = &quot;beta&quot;, mu = 5e-06, sd = 5e-06))
+mygene_list[[2]] = create_gene(theta_dist = list(type = &quot;beta&quot;, mu = 5e-06, sd = 2.5e-06))
+mygene_list[[3]] = create_gene(theta_dist = list(type = &quot;beta&quot;, mu = 5e-06, sd = 1e-06))
+mygenotype = create_genotype(maf = c(0.02, 0.5), nsample = 100, nreplicate = 10)
+betas = log(c(0.5, 0.9, 1, 1.5, 2))
+simulated_data = list()
+for(log_afc in betas) {
+  for(g in 1 : length(mygenotype)) {
+    for(j in 1 : length(mygene_list)) {
+     # print(g)
+      tmp = simulate_read_count(
+        mygene_list[[j]], mygenotype[[g]]$genotype, beta = log_afc, L_read = 75, 
+        y_dist = list(
+          type = &#39;negbinom&#39;,
+          prob = 2/3,
+          size_factor = 2
+        )
+      )
+      simulated_data[[length(simulated_data) + 1]] = list(data = tmp, beta = log_afc, geno_idx = g) 
+    }
   }
-  message(&#39;check diff, sum(abs diff), of column &#39;, colnames(df)[i], &#39;: &#39; , sum(abs(df[, i] - merge[, i])))
 }</code></pre>
-<pre><code>## check diff, sum(abs diff), of column pval.trc: 6.42385547624119e-10</code></pre>
-<pre><code>## check diff, sum(abs diff), of column stat.trc: 1.83275786674918e-09</code></pre>
-<pre><code>## check diff, sum(abs diff), of column bhat.trc: 1.22214562908995e-11</code></pre>
-<pre><code>## check diff, sum(abs diff), of column se.trc: 3.28842161834153e-11</code></pre>
-<pre><code>## check diff, sum(abs diff), of column pval.asc: 1.07532825680107e-12</code></pre>
-<pre><code>## check diff, sum(abs diff), of column stat.asc: 4.48996731721579e-12</code></pre>
-<pre><code>## check diff, sum(abs diff), of column bhat.asc: 6.39434421482055e-14</code></pre>
-<pre><code>## check diff, sum(abs diff), of column se.asc: 8.28347807013685e-14</code></pre>
-<pre><code>## check diff, sum(abs diff), of column pval.meta: 7.47865696181181e-10</code></pre>
-<pre><code>## check diff, sum(abs diff), of column stat.meta: 1.60824465447436e-09</code></pre>
-<pre><code>## check diff, sum(abs diff), of column bhat.meta: 1.78962149919047e-11</code></pre>
-<pre><code>## check diff, sum(abs diff), of column se.meta: 6.4461543741734e-12</code></pre>
-<pre class="r"><code>for(i in 1 : ncol(df)) {
-  if(is.character(df[1, i])) {
-    next
+</div>
+<div id="run-mixqtl" class="section level1">
+<h1><span class="header-section-number">2</span> Run mixQTL</h1>
+<pre class="r"><code>results = list()
+for(i in 1 : length(simulated_data)) {
+  datalist = simulated_data[[i]]
+  ytotal = datalist$data$observed$y1 + datalist$data$observed$y2 + datalist$data$observed$ystar
+  geno = mygenotype[[datalist$geno_idx]]$genotype
+  beta_true = datalist$beta
+  trc = matrix_ls_trc(ytotal, datalist$data$observed$Ti_lib, matrix((geno$h1 + geno$h2) / 2, ncol = 1), cov = rep(0, nrow(geno)), trc_cutoff = 20)
+  asc = matrix_ls_asc(datalist$data$observed$y1, datalist$data$observed$y2, matrix(geno$h1 - geno$h2, ncol = 1), asc_cutoff = 10)
+  meta_result = meta_analyze(trc, asc)
+  meta_list = list()
+  for(i in names(meta_result)) {
+    d = as.data.frame(lapply(meta_result[[i]], t))
+    colnames(d) = paste0(colnames(d), &#39;.&#39;, i)
+    meta_list[[length(meta_list) + 1]] = d
   }
-  message(&#39;[mixqtl] --&gt; check diff, sum(abs diff), of column &#39;, colnames(df)[i], &#39;: &#39; , sum(abs(df[, i] - mix_estimate[, i])))
-}</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column pval.trc: 6.42385547624119e-10</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column stat.trc: 1.83275786674918e-09</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column bhat.trc: 1.22214562908995e-11</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column se.trc: 3.28842161834153e-11</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column pval.asc: 1.07532825680107e-12</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column stat.asc: 4.48996731721579e-12</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column bhat.asc: 6.39434421482055e-14</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column se.asc: 8.28347807013685e-14</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column pval.meta: 7.47865696181181e-10</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column stat.meta: 1.60824465447436e-09</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column bhat.meta: 1.78962149919047e-11</code></pre>
-<pre><code>## [mixqtl] --&gt; check diff, sum(abs diff), of column se.meta: 6.4461543741734e-12</code></pre>
+  merge = do.call(cbind, meta_list)
+  merge$beta_true = beta_true
+  results[[length(results) + 1]] = merge
+}
+results = do.call(rbind, results)</code></pre>
 </div>
-<div id="plot-significance" class="section level2">
-<h2><span class="header-section-number">3.2</span> Plot significance</h2>
-<pre class="r"><code>df2 = inner_join(df, merge, by = &#39;variant_id&#39;, suffix = c(&#39;.old&#39;, &#39;.mixqtl&#39;))
-plist = list()
-for(i in c(&#39;trc&#39;, &#39;asc&#39;, &#39;meta&#39;)) {
-  plist[[length(plist) + 1]] = df2 %&gt;% ggplot() + geom_point(aes_string(x = paste0(&#39;bhat.&#39;, i, &#39;.old&#39;), y = paste0(&#39;bhat.&#39;, i, &#39;.mixqtl&#39;)), alpha = .1) + th  + coord_equal()
-}
-for(i in c(&#39;trc&#39;, &#39;asc&#39;, &#39;meta&#39;)) {
-  plist[[length(plist) + 1]] = df2 %&gt;% ggplot() + geom_point(aes_string(x = paste0(&#39;pval.&#39;, i, &#39;.old&#39;), y = paste0(&#39;pval.&#39;, i, &#39;.mixqtl&#39;)), alpha = .1) + scale_x_log10() + scale_y_log10() + th + coord_equal()
-}
-plot_grid(plotlist = plist)</code></pre>
-<p><img src="test_mixqtl_files/figure-html/plot-1.png" width="864" /></p>
-<p>With <code>mixqtl</code> wrapper.</p>
-<pre class="r"><code>df2 = inner_join(df, mix_estimate, by = &#39;variant_id&#39;, suffix = c(&#39;.old&#39;, &#39;.mixqtl.wrap&#39;))
-plist = list()
-for(i in c(&#39;trc&#39;, &#39;asc&#39;, &#39;meta&#39;)) {
-  plist[[length(plist) + 1]] = df2 %&gt;% ggplot() + geom_point(aes_string(x = paste0(&#39;bhat.&#39;, i, &#39;.old&#39;), y = paste0(&#39;bhat.&#39;, i, &#39;.mixqtl.wrap&#39;)), alpha = .1) + th  + coord_equal()
-}
-for(i in c(&#39;trc&#39;, &#39;asc&#39;, &#39;meta&#39;)) {
-  plist[[length(plist) + 1]] = df2 %&gt;% ggplot() + geom_point(aes_string(x = paste0(&#39;pval.&#39;, i, &#39;.old&#39;), y = paste0(&#39;pval.&#39;, i, &#39;.mixqtl.wrap&#39;)), alpha = .1) + scale_x_log10() + scale_y_log10() + th + coord_equal()
-}
-plot_grid(plotlist = plist)</code></pre>
-<p><img src="test_mixqtl_files/figure-html/plot2-1.png" width="864" /></p>
-</div>
+<div id="results" class="section level1">
+<h1><span class="header-section-number">3</span> Results</h1>
+<pre class="r"><code>results %&gt;% ggplot() + geom_point(aes(x = beta_true, y = bhat.asc), alpha = .2) + th + geom_abline(intercept = 0, slope = 1)</code></pre>
+<pre><code>## Warning: Removed 24 rows containing missing values (geom_point).</code></pre>
+<p><img src="test_simulation_files/figure-html/results-1.png" width="672" /></p>
+<pre class="r"><code>results %&gt;% ggplot() + geom_point(aes(x = beta_true, y = bhat.trc), alpha = .2) + th + geom_abline(intercept = 0, slope = 1)</code></pre>
+<p><img src="test_simulation_files/figure-html/results-2.png" width="672" /></p>
+<pre class="r"><code>source(&#39;https://gist.githubusercontent.com/liangyy/605437935751bb77b1739666b18517bf/raw/85b1e83d1cbf7c8b5671030e927000342ed16f97/my_qqplot_by_group.R&#39;)
+dfplot = results %&gt;% select(beta_true, pval.trc, pval.asc, pval.meta) %&gt;% reshape2::melt(id.var = &#39;beta_true&#39;) 
+dfnull = dfplot %&gt;% filter(beta_true == 0)
+my_qqplot_by_group(dfnull$value, dfnull$variable) + th + ggtitle(&#39;Null only&#39;)</code></pre>
+<pre><code>## Warning: Removed 5 rows containing missing values (geom_point).</code></pre>
+<p><img src="test_simulation_files/figure-html/results-3.png" width="672" /></p>
+<pre class="r"><code>my_qqplot_by_group(dfplot$value, dfplot$variable) + th + ggtitle(&#39;Everything&#39;)</code></pre>
+<pre><code>## Warning: Removed 24 rows containing missing values (geom_point).</code></pre>
+<p><img src="test_simulation_files/figure-html/results-4.png" width="672" /></p>
 </div>
 <div id="session-information" class="section level1">
 <h1><span class="header-section-number">4</span> Session information</h1>
@@ -548,33 +506,34 @@ plot_grid(plotlist = plist)</code></pre>
 ## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-## [1] mixqtl_0.1         cowplot_1.0.0.9000 ggplot2_3.2.1     
-## [4] dplyr_0.8.3       
+## [1] mixqtl_0.1         tictoc_1.0         cowplot_1.0.0.9000
+## [4] ggplot2_3.2.1      dplyr_0.8.3       
 ## 
 ## loaded via a namespace (and not attached):
 ##  [1] Rcpp_1.0.1           lattice_0.20-35      prettyunits_1.0.2   
 ##  [4] ps_1.3.0             assertthat_0.2.1     glmnet_2.0-18       
 ##  [7] rprojroot_1.3-2      digest_0.6.21        packrat_0.4.8-1     
-## [10] foreach_1.4.4        R6_2.4.0             backports_1.1.4     
-## [13] stats4_3.4.0         evaluate_0.13        pillar_1.4.2        
-## [16] rlang_0.4.1          curl_3.3             lazyeval_0.2.2      
-## [19] rstudioapi_0.10      callr_3.2.0          Matrix_1.2-11       
-## [22] rmarkdown_1.12       desc_1.2.0           labeling_0.3        
-## [25] devtools_2.2.1       stringr_1.4.0        loo_2.0.0           
-## [28] munsell_0.5.0        compiler_3.4.0       xfun_0.6            
-## [31] rstan_2.18.2         pkgconfig_2.0.2      pkgbuild_1.0.6      
-## [34] htmltools_0.3.6      tidyselect_0.2.5     tibble_2.1.3        
-## [37] tensorA_0.36         gridExtra_2.3        codetools_0.2-15    
-## [40] matrixStats_0.54.0   crayon_1.3.4         withr_2.1.2         
-## [43] grid_3.4.0           gtable_0.3.0         magrittr_1.5        
-## [46] StanHeaders_2.18.0-1 scales_1.0.0         cli_1.1.0           
-## [49] stringi_1.2.4        fs_1.3.1             remotes_2.1.0       
-## [52] testthat_2.3.0       ellipsis_0.3.0       iterators_1.0.10    
-## [55] tools_3.4.0          glue_1.3.1           susieR_0.7.1        
-## [58] purrr_0.3.2          yaml_2.2.0           processx_3.3.0      
-## [61] pkgload_1.0.2        parallel_3.4.0       inline_0.3.15       
-## [64] colorspace_1.4-0     sessioninfo_1.1.1    memoise_1.1.0       
-## [67] knitr_1.22           usethis_1.5.1</code></pre>
+## [10] foreach_1.4.4        R6_2.4.0             plyr_1.8.4          
+## [13] backports_1.1.4      stats4_3.4.0         evaluate_0.13       
+## [16] pillar_1.4.2         rlang_0.4.1          curl_3.3            
+## [19] lazyeval_0.2.2       rstudioapi_0.10      callr_3.2.0         
+## [22] Matrix_1.2-11        rmarkdown_1.12       desc_1.2.0          
+## [25] labeling_0.3         devtools_2.2.1       stringr_1.4.0       
+## [28] loo_2.0.0            munsell_0.5.0        compiler_3.4.0      
+## [31] xfun_0.6             rstan_2.18.2         pkgconfig_2.0.2     
+## [34] pkgbuild_1.0.6       htmltools_0.3.6      tidyselect_0.2.5    
+## [37] tibble_2.1.3         tensorA_0.36         gridExtra_2.3       
+## [40] codetools_0.2-15     matrixStats_0.54.0   crayon_1.3.4        
+## [43] withr_2.1.2          grid_3.4.0           gtable_0.3.0        
+## [46] magrittr_1.5         StanHeaders_2.18.0-1 scales_1.0.0        
+## [49] cli_1.1.0            stringi_1.2.4        reshape2_1.4.3      
+## [52] fs_1.3.1             remotes_2.1.0        testthat_2.3.0      
+## [55] ellipsis_0.3.0       iterators_1.0.10     tools_3.4.0         
+## [58] glue_1.3.1           susieR_0.7.1         purrr_0.3.2         
+## [61] yaml_2.2.0           processx_3.3.0       pkgload_1.0.2       
+## [64] parallel_3.4.0       inline_0.3.15        colorspace_1.4-0    
+## [67] sessioninfo_1.1.1    memoise_1.1.0        knitr_1.22          
+## [70] usethis_1.5.1</code></pre>
 </div>
 
 

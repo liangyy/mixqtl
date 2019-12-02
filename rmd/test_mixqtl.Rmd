@@ -33,6 +33,8 @@ class(geno2) = 'numeric'
 is_na = is.na(geno1) | is.na(geno2)
 geno1 = impute_geno(geno1)
 geno2 = impute_geno(geno2)
+geno1[is_na] = (geno1[is_na] + geno2[is_na]) / 2
+geno2[is_na] = geno1[is_na]
 
 df = data.frame(y1 = dat$ase1_g, y2 = dat$ase2_g, trc = dat$trc_g, Ti_lib = dat$nlib) %>% mutate(y_trc = trc, lib_size = Ti_lib, cov_offset = indiv_offset, y_ase1 = y1, y_ase2 = y2)
 # mutate(y_trc = log(trc / Ti_lib / 2) - indiv_offset, y_ase = log(y1 / y2)) 
@@ -55,6 +57,13 @@ merge = do.call(cbind, meta_list)
 merge$variant_id = dat$geno_name
 ```
 
+# Test wrapper function `mixqtl`
+
+```{r mixqtl}
+mix_estimate = mixqtl(geno1, geno2, df$y_ase1, df$y_ase2, df$y_trc, df$lib_size, cov_offset = indiv_offset, trc_cutoff = 100, asc_cutoff = 50, weight_cap = 10, asc_cap = 1000)
+mix_estimate$variant_id = dat$geno_name
+```
+
 # Load results generated from previous script
 
 Previous script: [link](https://github.com/liangyy/project-ase/blob/master/test_scripts/gtex-v8-pipeline/scripts/mixqtl_batch.R)
@@ -69,11 +78,17 @@ for(i in 1 : ncol(df)) {
   }
   message('check diff, sum(abs diff), of column ', colnames(df)[i], ': ' , sum(abs(df[, i] - merge[, i])))
 }
+for(i in 1 : ncol(df)) {
+  if(is.character(df[1, i])) {
+    next
+  }
+  message('[mixqtl] --> check diff, sum(abs diff), of column ', colnames(df)[i], ': ' , sum(abs(df[, i] - mix_estimate[, i])))
+}
 ```
 
 ## Plot significance
 
-```{r plot}
+```{r plot, fig.width=9, fig.height=6}
 df2 = inner_join(df, merge, by = 'variant_id', suffix = c('.old', '.mixqtl'))
 plist = list()
 for(i in c('trc', 'asc', 'meta')) {
@@ -81,6 +96,20 @@ for(i in c('trc', 'asc', 'meta')) {
 }
 for(i in c('trc', 'asc', 'meta')) {
   plist[[length(plist) + 1]] = df2 %>% ggplot() + geom_point(aes_string(x = paste0('pval.', i, '.old'), y = paste0('pval.', i, '.mixqtl')), alpha = .1) + scale_x_log10() + scale_y_log10() + th + coord_equal()
+}
+plot_grid(plotlist = plist)
+```
+
+With `mixqtl` wrapper.
+
+```{r plot2, fig.width=9, fig.height=6}
+df2 = inner_join(df, mix_estimate, by = 'variant_id', suffix = c('.old', '.mixqtl.wrap'))
+plist = list()
+for(i in c('trc', 'asc', 'meta')) {
+  plist[[length(plist) + 1]] = df2 %>% ggplot() + geom_point(aes_string(x = paste0('bhat.', i, '.old'), y = paste0('bhat.', i, '.mixqtl.wrap')), alpha = .1) + th  + coord_equal()
+}
+for(i in c('trc', 'asc', 'meta')) {
+  plist[[length(plist) + 1]] = df2 %>% ggplot() + geom_point(aes_string(x = paste0('pval.', i, '.old'), y = paste0('pval.', i, '.mixqtl.wrap')), alpha = .1) + scale_x_log10() + scale_y_log10() + th + coord_equal()
 }
 plot_grid(plotlist = plist)
 ```

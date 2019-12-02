@@ -1,0 +1,94 @@
+---
+title: "Test and example run for single-SNP simulation"
+# author: Yanyu Liang
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+```{r setup}
+set.seed(1)
+rm(list = ls())
+library(dplyr)
+library(ggplot2)
+library(cowplot)
+library(tictoc)
+source('https://gist.githubusercontent.com/liangyy/43912b3ecab5d10c89f9d4b2669871c9/raw/8151c6fe70e3d4ee43d9ce340ecc0eb65172e616/my_ggplot_theme.R')
+th = theme_bw(base_size = 15) + th 
+```
+
+```{r install_mixqtl}
+devtools::install_github('liangyy/mixqtl', auth_token = '163286e54308901bcc73ac6cce9c03d3a8055e7c')
+library(mixqtl)
+```
+
+# Simulation workflow
+
+```{r sim}
+mygene_list = list()
+mygene_list[[1]] = create_gene(theta_dist = list(type = "beta", mu = 5e-06, sd = 5e-06))
+mygene_list[[2]] = create_gene(theta_dist = list(type = "beta", mu = 5e-06, sd = 2.5e-06))
+mygene_list[[3]] = create_gene(theta_dist = list(type = "beta", mu = 5e-06, sd = 1e-06))
+mygenotype = create_genotype(maf = c(0.02, 0.5), nsample = 100, nreplicate = 10)
+betas = log(c(0.5, 0.9, 1, 1.5, 2))
+simulated_data = list()
+for(log_afc in betas) {
+  for(g in 1 : length(mygenotype)) {
+    for(j in 1 : length(mygene_list)) {
+     # print(g)
+      tmp = simulate_read_count(
+        mygene_list[[j]], mygenotype[[g]]$genotype, beta = log_afc, L_read = 75, 
+        y_dist = list(
+          type = 'negbinom',
+          prob = 2/3,
+          size_factor = 2
+        )
+      )
+      simulated_data[[length(simulated_data) + 1]] = list(data = tmp, beta = log_afc, geno_idx = g) 
+    }
+  }
+}
+```
+
+# Run mixQTL
+
+```{r mixqtl}
+results = list()
+for(i in 1 : length(simulated_data)) {
+  datalist = simulated_data[[i]]
+  ytotal = datalist$data$observed$y1 + datalist$data$observed$y2 + datalist$data$observed$ystar
+  geno = mygenotype[[datalist$geno_idx]]$genotype
+  beta_true = datalist$beta
+  trc = matrix_ls_trc(ytotal, datalist$data$observed$Ti_lib, matrix((geno$h1 + geno$h2) / 2, ncol = 1), cov = rep(0, nrow(geno)), trc_cutoff = 20)
+  asc = matrix_ls_asc(datalist$data$observed$y1, datalist$data$observed$y2, matrix(geno$h1 - geno$h2, ncol = 1), asc_cutoff = 10)
+  meta_result = meta_analyze(trc, asc)
+  meta_list = list()
+  for(i in names(meta_result)) {
+    d = as.data.frame(lapply(meta_result[[i]], t))
+    colnames(d) = paste0(colnames(d), '.', i)
+    meta_list[[length(meta_list) + 1]] = d
+  }
+  merge = do.call(cbind, meta_list)
+  merge$beta_true = beta_true
+  results[[length(results) + 1]] = merge
+}
+results = do.call(rbind, results)
+```
+
+# Results
+
+```{r results}
+results %>% ggplot() + geom_point(aes(x = beta_true, y = bhat.asc), alpha = .2) + th + geom_abline(intercept = 0, slope = 1)
+results %>% ggplot() + geom_point(aes(x = beta_true, y = bhat.trc), alpha = .2) + th + geom_abline(intercept = 0, slope = 1)
+source('https://gist.githubusercontent.com/liangyy/605437935751bb77b1739666b18517bf/raw/85b1e83d1cbf7c8b5671030e927000342ed16f97/my_qqplot_by_group.R')
+dfplot = results %>% select(beta_true, pval.trc, pval.asc, pval.meta) %>% reshape2::melt(id.var = 'beta_true') 
+dfnull = dfplot %>% filter(beta_true == 0)
+my_qqplot_by_group(dfnull$value, dfnull$variable) + th + ggtitle('Null only')
+my_qqplot_by_group(dfplot$value, dfplot$variable) + th + ggtitle('Everything')
+```
+
+
+# Session information
+
+```{r sinfo}
+sessionInfo()
+```
+
