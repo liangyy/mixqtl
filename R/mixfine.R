@@ -116,7 +116,7 @@ mixfine = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, tr
 
 
   # run susier with imputed y and X
-  mod = run_susie_default(X, df$y)
+  mod = run_susie_default(X, df$y, standardize = F, intercept = F)
   # cs = summary(mod)$cs
   # vars = summary(mod)$vars
   mod
