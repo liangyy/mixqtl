@@ -15,7 +15,8 @@ mixfine(
   trc_cutoff = 20,
   asc_cutoff = 5,
   weight_cap = 100,
-  asc_cap = 5000
+  asc_cap = 5000,
+  nobs_asc_cutoff = 1
 )
 }
 \arguments{
@@ -41,6 +42,8 @@ log(ytotal / lib_size / 2) (dimension = N x 1)}
 \item{weight_cap}{the maximum weight difference (in fold) is min(weight_cap, floor(sample_size / 10)). The ones exceeding the cutoff is capped. Set to NULL then no weight_cap applied.}
 
 \item{asc_cap}{exclude observations with y1 or y2 higher than asc_cap}
+
+\item{nobs_asc_cutoff}{don't consider ASC if number of observations is smaller than nobs_asc_cutoff}
 }
 \value{
 fine-mapping results (95% credible set and PIP)

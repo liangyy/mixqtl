@@ -17,7 +17,8 @@ mixpred(
   weight_cap = 100,
   asc_cap = 5000,
   alpha = 0.5,
-  nfold = 5
+  nfold = 5,
+  nobs_asc_cutoff = 1
 )
 }
 \arguments{
@@ -40,13 +41,15 @@ log(ytotal / lib_size / 2) (dimension = N x 1)}
 
 \item{asc_cutoff}{allele-specific read count cutoff to exclude observations with y1 or y2 lower than asc_cutoff}
 
-\item{weight_cap}{the maximum weight difference (in fold) is min(weight_cap, floor(sample_size / 10)). The ones exceeding the cutoff is capped.}
+\item{weight_cap}{the maximum weight difference (in fold) is min(weight_cap, floor(sample_size / 10)). The ones exceeding the cutoff is capped. Set to NULL then no weight_cap applied.}
 
 \item{asc_cap}{exclude observations with y1 or y2 higher than asc_cap}
 
 \item{alpha}{alpha parameter in elastic net model of glmnet (lasso: alpha = 1; ridge: alpha = 0). (default = 0.5).}
 
 \item{nfold}{number of fold for cross-validation to pick lambda parameter in glmnet. (default = 5).}
+
+\item{nobs_asc_cutoff}{don't consider ASC if number of observations is smaller than nobs_asc_cutoff}
 }
 \value{
 prediction model

@@ -19,6 +19,7 @@
 #' @param asc_cutoff allele-specific read count cutoff to exclude observations with y1 or y2 lower than asc_cutoff
 #' @param weight_cap the maximum weight difference (in fold) is min(weight_cap, floor(sample_size / 10)). The ones exceeding the cutoff is capped. Set to NULL then no weight_cap applied.
 #' @param asc_cap exclude observations with y1 or y2 higher than asc_cap
+#' @param nobs_asc_cutoff don't consider ASC if number of observations is smaller than nobs_asc_cutoff
 #'
 #' @return fine-mapping results (95% credible set and PIP)
 #'
@@ -39,7 +40,7 @@
 #'
 #' @export
 #' @importFrom susieR susie
-mixfine = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, trc_cutoff = 20, asc_cutoff = 5, weight_cap = 100, asc_cap = 5000, nobs_asc_cutoff = 20) {
+mixfine = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, trc_cutoff = 20, asc_cutoff = 5, weight_cap = 100, asc_cap = 5000, nobs_asc_cutoff = 1) {
   # prepare X
   h1 = geno1
   h1[is.na(h1)] = 0.5
