@@ -27,7 +27,7 @@ approx_susie = function(x, y, w = NULL, intercept = T, only_weight = F) {
     if(only_weight == T) {
       return(list(x = x_susie, y = y_susie))
     }
-    tryCatch(
+    sigma = tryCatch(
       {
         mod = glmnet::cv.glmnet(x, y, weights = w, standardize = F, intercept = intercept, nfold = 4)
         # To stablize the estimation of sigma, we calculate MSE using best beta according to CV mean, CV low, CV up and take the max value 
