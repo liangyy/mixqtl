@@ -67,7 +67,7 @@ approx_susie = function(x, y, w = NULL, intercept = T, only_weight = F) {
     }
     return(list(x = x_susie / sigma, y = y_susie / sigma, sigma = sigma))  # , mod = mod))
   } else {
-    tryCatch(
+    sigma = tryCatch(
       {
         mod = glmnet::cv.glmnet(x, y, standardize = F, intercept = intercept)
         beta = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvm)])
