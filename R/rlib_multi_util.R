@@ -53,10 +53,12 @@ approx_susie = function(x, y, w = NULL, intercept = T, only_weight = F) {
       error = function(cond) {
         message('cv.glmnet failed with error:')
         message(cond)
-        message('use sigma = sqrt(sum(y_bar^2) / sum(1/w))')
-        mod = lm(y ~ 1, weights = w)
-        y_bar = residuals(mod)
-        sigma = sqrt(sum(y_bar^2) / sum(1 / w))
+        message('discard the fit')
+        # message('use sigma = sqrt(sum(y_bar^2) / sum(1/w))')
+        # mod = lm(y ~ 1, weights = w)
+        # y_bar = residuals(mod)
+        # sigma = sqrt(sum(y_bar^2) / sum(1 / w))
+        sigma = NA
         return(sigma)
       } 
     )
@@ -73,10 +75,12 @@ approx_susie = function(x, y, w = NULL, intercept = T, only_weight = F) {
       error = function(cond) {
         message('cv.glmnet failed with error:')
         message(cond)
-        message('use sigma = sqrt(mean(y_bar^2))')
-        mod = lm(y ~ 1)
-        y_bar = residuals(mod)
-        sigma = sqrt(mean(y_bar^2))
+        message('discard the fit')
+        # message('use sigma = sqrt(mean(y_bar^2))')
+        # mod = lm(y ~ 1)
+        # y_bar = residuals(mod)
+        # sigma = sqrt(mean(y_bar^2))
+        sigma = NA
         return(sigma)
       } 
     )

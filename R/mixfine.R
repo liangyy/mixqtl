@@ -100,8 +100,14 @@ mixfine = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, tr
   if(sum(df$inpt == 0) >= nobs_asc_cutoff) {
     susie_data1 = approx_susie(X[df$inpt == 0, , drop = F], df$y[df$inpt == 0], w = df$weights[df$inpt == 0], intercept = FALSE)
     # impute effective y and X
-    X1 = diag(sqrt(df$weights[df$inpt == 0])) %*% X[df$inpt == 0, , drop = F] / susie_data1$sigma
-    y1 = susie_data1$y
+    if(is.na(susie_data1$sigma)) {
+      X1 = NULL
+      y1 = NULL
+      susie_data1 = NULL
+    } else {
+      X1 = diag(sqrt(df$weights[df$inpt == 0])) %*% X[df$inpt == 0, , drop = F] / susie_data1$sigma
+      y1 = susie_data1$y
+    }
   } else {
     X1 = NULL
     y1 = NULL
@@ -109,7 +115,12 @@ mixfine = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, tr
   }
   # susie_data1 = approx_susie(X[df$inpt == 0, , drop = F], df$y[df$inpt == 0], w = df$weights[df$inpt == 0], intercept = FALSE)
   susie_data2 = approx_susie(X[df$inpt == 1, , drop = F], df$y[df$inpt == 1], w = NULL, intercept = TRUE)
-
+  
+  if(is.na(susie_data2$sigma)) {
+    message('Unexpected failure of fitting sigma for total counts. Too few observations? Quit!')
+    quit()
+  }
+  
   # impute effective y and X
   # X1 = diag(sqrt(df$weights[df$inpt == 0])) %*% X[df$inpt == 0, , drop = F] / susie_data1$sigma
   X2 = X[df$inpt == 1, , drop = F] / susie_data2$sigma
