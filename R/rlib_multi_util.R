@@ -53,7 +53,7 @@ approx_susie = function(x, y, w = NULL, intercept = T, only_weight = F) {
       error = function(cond) {
         message('cv.glmnet failed with error:')
         message(cond)
-        message('discard the fit')
+        message(' discard the fit')
         # message('use sigma = sqrt(sum(y_bar^2) / sum(1/w))')
         # mod = lm(y ~ 1, weights = w)
         # y_bar = residuals(mod)
@@ -62,6 +62,9 @@ approx_susie = function(x, y, w = NULL, intercept = T, only_weight = F) {
         return(sigma)
       } 
     )
+    if(is.na(sigma)) {
+      return(list(x = NA, y = NA, sigma = NA))
+    }
     return(list(x = x_susie / sigma, y = y_susie / sigma, sigma = sigma))  # , mod = mod))
   } else {
     tryCatch(
@@ -75,7 +78,7 @@ approx_susie = function(x, y, w = NULL, intercept = T, only_weight = F) {
       error = function(cond) {
         message('cv.glmnet failed with error:')
         message(cond)
-        message('discard the fit')
+        message(' discard the fit')
         # message('use sigma = sqrt(mean(y_bar^2))')
         # mod = lm(y ~ 1)
         # y_bar = residuals(mod)
@@ -84,6 +87,9 @@ approx_susie = function(x, y, w = NULL, intercept = T, only_weight = F) {
         return(sigma)
       } 
     )
+    if(is.na(sigma)) {
+      return(list(x = NA, y = NA, sigma = NA))
+    }
     
     if(intercept == T) {
       y = scale(y, T, F)
