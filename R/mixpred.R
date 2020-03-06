@@ -42,7 +42,7 @@
 #'
 #' @export
 #' @importFrom susieR susie
-mixpred = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, trc_cutoff = 20, asc_cutoff = 5, weight_cap = 100, asc_cap = 5000, alpha = 0.5, nfold = 5, nobs_asc_cutoff = 1) {
+mixpred = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, trc_cutoff = 20, asc_cutoff = 5, weight_cap = 100, asc_cap = 5000, alpha = 0.5, nfold = 5, nobs_asc_cutoff = 1, ...) {
   # prepare X
   h1 = geno1
   h1[is.na(h1)] = 0.5
@@ -132,7 +132,7 @@ mixpred = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, tr
 
 
   # fit elastic net model with imputed y and X
-  mod = fit_glmnet_with_cv(X, df$y, nfold = nfold, alpha = alpha, intercept = F)
+  mod = fit_glmnet_with_cv(X, df$y, nfold = nfold, alpha = alpha, ...)  # intercept = F)
   
   mod
 }
