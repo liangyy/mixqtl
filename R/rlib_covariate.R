@@ -6,7 +6,7 @@
 #' 2. Regress the selected covariates against response and return the predicted response
 #'
 #' @param trc total read count (dimension = N x 1)
-#' @param lib_size library size (dimension = N x 1)
+#' @param lib_size library size (dimension = N x 1) If it is set to NULL, we consider trc as y and do not do any transformation.
 #' @param covariates covariates (dimension = C x N) with the first column indicating the covariate name
 #'
 #' @return predicted response based on the selected covariates (if no covariates are selected, fill in zeros)
@@ -35,7 +35,11 @@ regress_against_covariate = function(trc, lib_size, covariates) {
 }
 
 effect_size_trc_with_covariates_get_coef_refactored = function(trc, lib_size, cov_i) {
-  lhs = log(trc / lib_size / 2)
+  if(!is.null(lib_size)) {
+    lhs = log(trc / lib_size / 2)
+  } else {
+    lhs = trc
+  }
   rhs_indiv = 1 : length(trc)
   regress_out_covar(lhs, rhs_indiv, cov_i)
 }

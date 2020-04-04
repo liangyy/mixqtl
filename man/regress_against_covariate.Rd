@@ -9,7 +9,7 @@ regress_against_covariate(trc, lib_size, covariates)
 \arguments{
 \item{trc}{total read count (dimension = N x 1)}
 
-\item{lib_size}{library size (dimension = N x 1)}
+\item{lib_size}{library size (dimension = N x 1) If it is set to NULL, we consider trc as y and do not do any transformation.}
 
 \item{covariates}{covariates (dimension = C x N) with the first column indicating the covariate name}
 }

@@ -1,6 +1,6 @@
 Package: mixqtl
 Title: Combine total and allele-specific counts for cis-QTL analysis
-Version: 0.1
+Version: 0.1.1
 Authors@R: 
     person(given = "Yanyu",
            family = "Liang",

@@ -27,31 +27,70 @@ approx_susie = function(x, y, w = NULL, intercept = T, only_weight = F) {
     if(only_weight == T) {
       return(list(x = x_susie, y = y_susie))
     }
-    mod = glmnet::cv.glmnet(x, y, weights = w, standardize = F, intercept = intercept, nfold = 4)
-    # To stablize the estimation of sigma, we calculate MSE using best beta according to CV mean, CV low, CV up and take the max value 
-    beta1 = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvm)])
-    beta2 = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvlo)])
-    beta3 = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvup)])
-    x_pred = cbind(rep(1, nrow(x)), x)
-    # sigma = sqrt(sum((y - x_pred %*% beta)^2) / sum(1 / w))
-    sigma1 = sqrt(mean((y - x_pred %*% beta1)^2 * w))
-    sigma2 = sqrt(mean((y - x_pred %*% beta2)^2 * w))
-    sigma3 = sqrt(mean((y - x_pred %*% beta3)^2 * w))
-    sigma = max(c(sigma1, sigma2, sigma3))
-     
-    # for further debugging
-    #
-    # mod = glmnet::cv.glmnet(x_susie, y_susie, standardize = F, intercept = intercept)
-    # beta = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvm)])
-    # x_pred = cbind(rep(1, nrow(x_susie)), x_susie)
-    # sigma = sqrt(mean((y_susie - x_pred %*% beta)^2))
-
+    sigma = tryCatch(
+      {
+        mod = glmnet::cv.glmnet(x, y, weights = w, standardize = F, intercept = intercept, nfold = 4)
+        # To stablize the estimation of sigma, we calculate MSE using best beta according to CV mean, CV low, CV up and take the max value 
+        # beta1 = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvm)])
+        # beta2 = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvlo)])
+        # beta3 = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvup)])
+        beta = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvm)])
+        x_pred = cbind(rep(1, nrow(x)), x)
+        sigma = sqrt(sum((y - x_pred %*% beta)^2) / sum(1 / w))
+        # sigma1 = sqrt(mean((y - x_pred %*% beta1)^2 * w))
+        # sigma2 = sqrt(mean((y - x_pred %*% beta2)^2 * w))
+        # sigma3 = sqrt(mean((y - x_pred %*% beta3)^2 * w))
+        # sigma = max(c(sigma1, sigma2, sigma3))
+         
+        # for further debugging
+        #
+        # mod = glmnet::cv.glmnet(x_susie, y_susie, standardize = F, intercept = intercept)
+        # beta = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvm)])
+        # x_pred = cbind(rep(1, nrow(x_susie)), x_susie)
+        # sigma = sqrt(mean((y_susie - x_pred %*% beta)^2))
+        sigma
+      },
+      error = function(cond) {
+        message('cv.glmnet failed with error:')
+        message(cond)
+        message(' discard the fit')
+        # message('use sigma = sqrt(sum(y_bar^2) / sum(1/w))')
+        # mod = lm(y ~ 1, weights = w)
+        # y_bar = residuals(mod)
+        # sigma = sqrt(sum(y_bar^2) / sum(1 / w))
+        sigma = NA
+        return(sigma)
+      } 
+    )
+    if(is.na(sigma)) {
+      return(list(x = NA, y = NA, sigma = NA))
+    }
     return(list(x = x_susie / sigma, y = y_susie / sigma, sigma = sigma))  # , mod = mod))
   } else {
-    mod = glmnet::cv.glmnet(x, y, standardize = F, intercept = intercept)
-    beta = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvm)])
-    x_pred = cbind(rep(1, nrow(x)), x)
-    sigma = sqrt(mean((y - x_pred %*% beta)^2))
+    sigma = tryCatch(
+      {
+        mod = glmnet::cv.glmnet(x, y, standardize = F, intercept = intercept)
+        beta = as.vector(coef(mod$glmnet.fit)[, which.min(mod$cvm)])
+        x_pred = cbind(rep(1, nrow(x)), x)
+        sigma = sqrt(mean((y - x_pred %*% beta)^2))
+        sigma
+      },
+      error = function(cond) {
+        message('cv.glmnet failed with error:')
+        message(cond)
+        message(' discard the fit')
+        # message('use sigma = sqrt(mean(y_bar^2))')
+        # mod = lm(y ~ 1)
+        # y_bar = residuals(mod)
+        # sigma = sqrt(mean(y_bar^2))
+        sigma = NA
+        return(sigma)
+      } 
+    )
+    if(is.na(sigma)) {
+      return(list(x = NA, y = NA, sigma = NA))
+    }
+    
     if(intercept == T) {
       y = scale(y, T, F)
     }

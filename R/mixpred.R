@@ -17,10 +17,11 @@
 #' log(ytotal / lib_size / 2) (dimension = N x 1)
 #' @param trc_cutoff total read count cutoff to exclude observations with ytotal lower than the cutoff
 #' @param asc_cutoff allele-specific read count cutoff to exclude observations with y1 or y2 lower than asc_cutoff
-#' @param weight_cap the maximum weight difference (in fold) is min(weight_cap, floor(sample_size / 10)). The ones exceeding the cutoff is capped.
+#' @param weight_cap the maximum weight difference (in fold) is min(weight_cap, floor(sample_size / 10)). The ones exceeding the cutoff is capped. Set to NULL then no weight_cap applied.
 #' @param asc_cap exclude observations with y1 or y2 higher than asc_cap
 #' @param alpha alpha parameter in elastic net model of glmnet (lasso: alpha = 1; ridge: alpha = 0). (default = 0.5).
 #' @param nfold number of fold for cross-validation to pick lambda parameter in glmnet. (default = 5).
+#' @param nobs_asc_cutoff don't consider ASC if number of observations is smaller than nobs_asc_cutoff
 #'
 #' @return prediction model
 #'
@@ -41,7 +42,7 @@
 #'
 #' @export
 #' @importFrom susieR susie
-mixpred = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, trc_cutoff = 20, asc_cutoff = 5, weight_cap = 100, asc_cap = 5000, alpha = 0.5, nfold = 5) {
+mixpred = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, trc_cutoff = 20, asc_cutoff = 5, weight_cap = 100, asc_cap = 5000, alpha = 0.5, nfold = 5, nobs_asc_cutoff = 1, ...) {
   # prepare X
   h1 = geno1
   h1[is.na(h1)] = 0.5
@@ -88,25 +89,38 @@ mixpred = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, tr
   X = X[!is_na, , drop = F]
 
   # applying weight cap on ASC rows
-  weights_asc = df$weights[df$inpt == 0]
-  sample_size = sum(df$inpt == 0)
-  weight_cap = min(weight_cap, floor(sample_size / 10))
-  weight_cutoff = min(weights_asc) * weight_cap
-  weights_asc[weights_asc > weight_cutoff] = weight_cutoff
-  df$weights[df$inpt == 0] = weights_asc
+  if(!is.null(weight_cap)) {
+    weights_asc = df$weights[df$inpt == 0]
+    sample_size = sum(df$inpt == 0)
+    weight_cap = min(weight_cap, floor(sample_size / 10))
+    weight_cutoff = min(weights_asc) * weight_cap
+    weights_asc[weights_asc > weight_cutoff] = weight_cutoff
+    df$weights[df$inpt == 0] = weights_asc
+  }
 
   # training
-  if(sum(df$inpt == 0) >= 15) {
+  if(sum(df$inpt == 0) >= nobs_asc_cutoff) {
     susie_data1 = approx_susie(X[df$inpt == 0, , drop = F], df$y[df$inpt == 0], w = df$weights[df$inpt == 0], intercept = FALSE)
     # impute effective y and X
-    X1 = diag(sqrt(df$weights[df$inpt == 0])) %*% X[df$inpt == 0, , drop = F] / susie_data1$sigma
-    y1 = susie_data1$y
+    if(is.na(susie_data1$sigma)) {
+      X1 = NULL
+      y1 = NULL
+      susie_data1 = NULL
+    } else {
+      X1 = diag(sqrt(df$weights[df$inpt == 0])) %*% X[df$inpt == 0, , drop = F] / susie_data1$sigma
+      y1 = susie_data1$y
+    }
   } else {
     X1 = NULL
     y1 = NULL
   }
   # susie_data1 = approx_susie(X[df$inpt == 0, , drop = F], df$y[df$inpt == 0], w = df$weights[df$inpt == 0], intercept = FALSE)
   susie_data2 = approx_susie(X[df$inpt == 1, , drop = F], df$y[df$inpt == 1], w = NULL, intercept = TRUE)
+
+  if(is.na(susie_data2$sigma)) {
+    message('Unexpected failure of fitting sigma for total counts. Too few observations? Quit!')
+    quit()
+  }
 
   # impute effective y and X
   # X1 = diag(sqrt(df$weights[df$inpt == 0])) %*% X[df$inpt == 0, , drop = F] / susie_data1$sigma
@@ -118,8 +132,7 @@ mixpred = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, tr
 
 
   # fit elastic net model with imputed y and X
-  mod = fit_glmnet_with_cv(X, df$y, nfold = nfold, alpha = alpha, intercept = F, standardize = F)
-  # cs = summary(mod)$cs
-  # vars = summary(mod)$vars
+  mod = fit_glmnet_with_cv(X, df$y, nfold = nfold, alpha = alpha, ...)  # intercept = F)
+  
   mod
 }
