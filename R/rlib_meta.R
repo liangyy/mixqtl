@@ -72,7 +72,7 @@ my_meta_fast_ = function(b1, s1, n1, b2, s2, n2, method = c('trc', 'asc'), n_cut
     pval_meta$stat_type = NULL
   } else {
     pval_meta = pval2
-    pval_meta$method = matrix(method[1], ncol = dim(b2)[2], nrow = dim(b2)[1])
+    pval_meta$method = matrix(method[2], ncol = dim(b2)[2], nrow = dim(b2)[1])
     pval_meta$bhat = b2
     pval_meta$se = s2
     na_2_notna_1 = is.na(b2) & !is.na(b1)
