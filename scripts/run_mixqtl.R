@@ -1,41 +1,25 @@
+#!/usr/bin/env Rscript
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(readr))
 suppressPackageStartupMessages(library(argparse))
 
 suppressPackageStartupMessages(library(data.table))
-
-#suppressPackageStartupMessages(library(mixqtl))
-# parser <- ArgumentParser(description='Process some integers')
-# parser$add_argument('-library_size')
-# parser$add_argument('-variant_annotation')
-# parser$add_argument('-haplotype_1')
-# parser$add_argument('-haplotype_2')
-# parser$add_argument('-covariates')
-# parser$add_argument('-expression_annotation')
-# parser$add_argument('-expression_total_count')
-# parser$add_argument('-expression_count_1')
-# parser$add_argument('-expression_count_2')
-# parser$add_argument('-window', type="integer", default=1000000)
-# parser$add_argument('-output')
-# args <- parser$parse_args()
-
-
-# DEBUG
-#devtools::dev_mode()
 suppressPackageStartupMessages(library(mixqtl))
-F <- "/gpfs/data/im-lab/nas40t2/abarbeira/projects/mixqtl/sample_data"
-args <- list()
-args$library_size <- file.path(F, "geuvadis.library_size.tsv.gz")
-args$variant_annotation <- file.path(F, "geuvadis_22_variant_annotation.txt.gz")
-args$window <- 1e6
-args$haplotype_1 <- file.path(F, "geuvadis_22_hap1.txt.gz")
-args$haplotype_2 <- file.path(F, "geuvadis_22_hap2.txt.gz")
-args$covariates <- file.path(F, "geuvadis.covariate.txt.gz")
-args$expression_annotation <- file.path(F, "gencode.v12.txt.gz")
-args$expression_total_count <- file.path(F, "expression_count.txt.gz")
-args$expression_count_1 <- file.path(F, "geuvadis.asc.h1.tsv.gz")
-args$expression_count_2 <- file.path(F, "geuvadis.asc.h2.tsv.gz")
-args$output <- "/gpfs/data/im-lab/nas40t2/abarbeira/projects/mixqtl/results/mixqtl.txt"
+
+parser <- ArgumentParser(description='Process some integers')
+parser$add_argument('-library_size')
+parser$add_argument('-variant_annotation')
+parser$add_argument('-haplotype_1')
+parser$add_argument('-haplotype_2')
+parser$add_argument('-covariates')
+parser$add_argument('-expression_annotation')
+parser$add_argument('-expression_total_count')
+parser$add_argument('-expression_count_1')
+parser$add_argument('-expression_count_2')
+parser$add_argument('-window', type="integer", default=1000000)
+parser$add_argument('-output')
+args <- parser$parse_args()
+
 
 ###############################################################################
 # Data Loading & Prep
@@ -95,7 +79,6 @@ transpose_data <- function(d) {
 etrc <- transpose_data(expression_total_count)
 eac1 <- transpose_data(expression_count_1)
 eac2 <- transpose_data(expression_count_2)
-
 covariates <- data.frame(covariates)
 
 get_haplotypes <- function(variants, haplotype) {
@@ -109,30 +92,48 @@ get_haplotypes <- function(variants, haplotype) {
 # Processing
 cat("Processing\n")
 expression_annotation <- expression_annotation %>% filter(gene_id %in% expression_total_count$gene_list | gene_id %in% expression_count_1$gene_list)
-n_genes <- nrow(expression_annotation)
-#for (i in 1:dim(expression_annotation)) {
-#  gene <- expression_annotation[i,]
-i <- 1
-gene <- expression_annotation %>% filter(gene_id == "ENSG00000223875.1")
 
-  cat(glue::glue("Processing {i}/{n_genes}: {gene$gene_name}\n"))
-  window_start <- max(0, gene$start-args$window)
-  window_end <- gene$end+args$window
-  variants <- variant_annotation %>% filter(chromosome == gene$chromosome, window_start <= position, position <= window_end)
-  if (nrow(variants) == 0) {
-    next;
-  }
+genes <- c(colnames(etrc), colnames(eac1)) %>% unique
+#genes <- expression_annotation %>% filter(chromosome == 22) %>% head %>% .$gene_id
+n_genes <- length(genes)
+first_write <- TRUE
 
-  if(!is.null(args$covariates)) {
-    #seguro que es convertir covariates a data.frame
-    indiv_offset <- regress_against_covariate(etrc[[gene$gene_id]], library_size$lib_size, covariates)
-  } else {
-    indiv_offset <- NULL
-  }
+for (i in 1:n_genes) {
+  gene_ <- genes[i]
+  tryCatch({
+    gene <- expression_annotation %>% filter(gene_id == gene_)
+    cat(glue::glue("Processing {i}/{n_genes}: {gene$gene_name}"), "\n")
+    window_start <- max(0, gene$start-args$window)
+    window_end <- gene$end+args$window
+    variants <- variant_annotation %>% filter(chromosome == gene$chromosome, window_start <= position, position <= window_end)
+    if (nrow(variants) == 0) {
+      cat("No available variants\n")
+      next;
+    }
 
-  genotypes_1 <- get_haplotypes(variants, haplotype_1)
-  genotypes_2 <- get_haplotypes(variants, haplotype_2)
+    if(!is.null(args$covariates)) {
+      indiv_offset <- regress_against_covariate(etrc[[gene$gene_id]], library_size$lib_size, covariates)
+    } else {
+      indiv_offset <- NULL
+    }
 
-  r <- mixqtl(genotypes_1, genotypes_2, eac1[[gene$gene_id]], eac2[[gene$gene_id]], etrc[[gene$gene_id]], library_size$lib_size, indiv_offset)
-#}
+    genotypes_1 <- get_haplotypes(variants, haplotype_1)
+    genotypes_2 <- get_haplotypes(variants, haplotype_2)
+
+    r <- mixqtl(genotypes_1, genotypes_2, eac1[[gene$gene_id]], eac2[[gene$gene_id]], etrc[[gene$gene_id]], library_size$lib_size, indiv_offset)
+    r_ <- data.frame(gene = gene$gene_id, gene_name = gene$gene_name, variant = colnames(genotypes_1), stringsAsFactors=FALSE)
+
+    r <- cbind(r_, r)
+
+    gzf = gzfile(args$output, ifelse(first_write,"w", "a"));
+    write.table(r, gzf, append=!first_write, col.names = first_write, row.names = FALSE, sep="\t", quote = FALSE)
+    close(gzf)
+    first_write <- FALSE
+  },
+  error = function(e){
+    cat("Error: ", gene$gene_id, "\n")
+    message(e)
+    return(NA)
+  })
+}
 
