@@ -4,5 +4,5 @@
 
 scripts/kk*
 pycharm
-sample_data
+sample_data*
 *__pycache__*

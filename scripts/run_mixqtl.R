@@ -7,6 +7,10 @@ suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(mixqtl))
 
 parser <- ArgumentParser(description='Process some integers')
+parser$add_argument("-trc_cutoff", type="integer", default=20)
+parser$add_argument("-asc_cutoff", type="integer", default=5)
+parser$add_argument("-weight_cap", type="double", default=100)
+parser$add_argument("-asc_cap", type="integer", default=5000)
 parser$add_argument('-library_size')
 parser$add_argument('-variant_annotation')
 parser$add_argument('-haplotype_1')
@@ -20,10 +24,14 @@ parser$add_argument('-window', type="integer", default=1000000)
 parser$add_argument('-output')
 args <- parser$parse_args()
 
+cat(glue::glue("Running with trc_cutoff: {args$trc_cutoff}"), "\n")
+cat(glue::glue("Running with asc_cutoff: {args$asc_cutoff}"), "\n")
+cat(glue::glue("Running with weight_cap: {args$weight_cap}"), "\n")
+cat(glue::glue("Running with asc_cap: {args$asc_cap}"), "\n")
 
 ###############################################################################
 # Data Loading & Prep
-cat("Loading library size")
+cat("Loading library size\n")
 library_size <- read_tsv(args$library_size) %>% select(indiv, lib_size)
 
 cat("Loading variant annotation\n")
@@ -120,7 +128,8 @@ for (i in 1:n_genes) {
     genotypes_1 <- get_haplotypes(variants, haplotype_1)
     genotypes_2 <- get_haplotypes(variants, haplotype_2)
 
-    r <- mixqtl(genotypes_1, genotypes_2, eac1[[gene$gene_id]], eac2[[gene$gene_id]], etrc[[gene$gene_id]], library_size$lib_size, indiv_offset)
+    r <- mixqtl(genotypes_1, genotypes_2, eac1[[gene$gene_id]], eac2[[gene$gene_id]], etrc[[gene$gene_id]], library_size$lib_size, indiv_offset,
+                trc_cutoff = args$trc_cutoff, asc_cutoff = args$asc_cutoff, weight_cap = args$weight_cap, asc_cap = args$asc_cap)
     r_ <- data.frame(gene = gene$gene_id, gene_name = gene$gene_name, variant = colnames(genotypes_1), stringsAsFactors=FALSE)
 
     r <- cbind(r_, r)
