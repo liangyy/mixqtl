@@ -1,7 +1,7 @@
 #!/bin/bash
 
-
-Rscript $MIXQTL/scripts/kk_run_mixqtl_conda.R \
+#Rscript $MIXQTL/scripts/kk_run_mixqtl_conda.R \
+Rscript $MIXQTL/scripts/mixqtl_conda.R \
 -library_size $DATA/geuvadis.library_size.tsv.gz \
 -variant_annotation $DATA/geuvadis_22_variant_annotation.txt.gz \
 -window 1000000 \
