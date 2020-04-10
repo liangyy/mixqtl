@@ -17,4 +17,4 @@ For a given gene, the following input data is required
 * Covariates (optional)
 
 # Tutorial for applying mixQTL
-Find detailed instructions on how to run mixQTL [here](https://github.com/liangyy/mixqtl/wiki/Example-and-tutorial)
+Find detailed instructions on how to run mixQTL [here](https://github.com/hakyimlab/mixqtl/wiki/Example-and-tutorial)
