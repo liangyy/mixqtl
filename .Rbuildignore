@@ -1,3 +1,2 @@
-^mixqtl\.Rproj$
+^.*\.Rproj$
 ^\.Rproj\.user$
-^TODO\.md$

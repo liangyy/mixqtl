@@ -112,7 +112,7 @@ for (i in 1:n_genes) {
     gene <- expression_annotation %>% filter(gene_id == gene_)
     cat(glue::glue("Processing {i}/{n_genes}: {gene$gene_name}"), "\n")
     window_start <- max(0, gene$start-args$window)
-    window_end <- gene$end+args$window
+    window_end <- gene$start + args$window
     variants <- variant_annotation %>% filter(chromosome == gene$chromosome, window_start <= position, position <= window_end)
     if (nrow(variants) == 0) {
       cat("No available variants\n")
