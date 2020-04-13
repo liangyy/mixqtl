@@ -12,4 +12,4 @@ The manuscript describing the details of the approach can be found [here](//gith
 
 # Tutorial for applying mixQTL
 
-Find detailed instructions on how to run mixQTL [here](https://github.com/hakyimlab/mixqtl/wiki/Example-and-tutorial)
+Find detailed instructions on how to run mixQTL [here](https://github.com/hakyimlab/mixqtl/wiki) via the command line tool or R  functions.
