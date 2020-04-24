@@ -7,7 +7,7 @@ We develop computationally efficient methods that integrate allele-specific and 
 This repository hosts the R implementation of mixQTL, mixFine, and mixPred.
 
 # manuscript 
-The manuscript describing the details of the approach can be found [here](//github.com/hakyimlab/mixqtl) EDIT
+The manuscript describing the details of the approach can be found [here](https://www.biorxiv.org/content/10.1101/2020.04.22.050666v1)
 
 
 # Tutorial for applying mixQTL
