@@ -1,0 +1,128 @@
+#' Combining total and allele-specific reads for fine-mapping
+#'
+#' Given total and allele-specific read counts along with library size,
+#' the two-step inference procedure is implemented to perform fine-mapping.
+#' Step 1: estimate variances of total and allele-specific count response respectively
+#' along with intercept for total count response
+#' Step 2: transform observation according to step 1 and perform fine-mapping
+#' using susieR::susie
+#'
+#' @param geno1 genotype of haplotype 1 (dimension = N x P)
+#' @param geno2 genotype of haplotype 2 (dimension = N x P)
+#' @param y1 allele-specific read count for haplotype 1 (dimension = N x 1)
+#' @param y2 allele-specific read count for haplotype 2 (dimension = N x 1)
+#' @param ytotal total read count (dimension = N x 1)
+#' @param lib_size library size (dimension = N x 1)
+#' @param cov_offset predicted effect of covariates on total read count response term,
+#' log(ytotal / lib_size / 2) (dimension = N x 1)
+#' @param trc_cutoff total read count cutoff to exclude observations with ytotal lower than the cutoff
+#' @param asc_cutoff allele-specific read count cutoff to exclude observations with y1 or y2 lower than asc_cutoff
+#' @param weight_cap the maximum weight difference (in fold) is min(weight_cap, ceiling(sample_size / 10)). The ones exceeding the cutoff is capped. Set to NULL then no weight_cap applied.
+#' @param asc_cap exclude observations with y1 or y2 higher than asc_cap
+#' @param nobs_asc_cutoff don't consider ASC if number of observations is smaller than nobs_asc_cutoff
+#'
+#' @return fine-mapping results (95% credible set and PIP)
+#'
+#' @examples
+#' mixfine(
+#'   geno1 = matrix(sample(c(0, 0.5, 1), 200, replace = TRUE), ncol = 2),
+#'   geno2 = matrix(sample(c(0, 0.5, 1), 200, replace = TRUE), ncol = 2),
+#'   y1 = rpois(100, 100),
+#'   y2 = rpois(100, 100),
+#'   ytotal = rpois(100, 1000),
+#'   lib_size = rpois(100, 10000),
+#'   cov_offset = runif(100),
+#'   trc_cutoff = 100,
+#'   asc_cutoff = 50,
+#'   weight_cap = 100,
+#'   asc_cap = 1000
+#' )
+#'
+#' @export
+#' @importFrom susieR susie
+mixfine_dev = function(geno1, geno2, y1, y2, ytotal, lib_size, cov_offset = NULL, trc_cutoff = 20, asc_cutoff = 5, weight_cap = 100, asc_cap = 5000, nobs_asc_cutoff = 1) {
+  # prepare X
+  h1 = geno1
+  h1[is.na(h1)] = 0.5
+  h2 = geno2
+  h2[is.na(h2)] = 0.5
+  X = rbind(h1 - h2, (h1 + h2) / 2)
+
+  # apply trc and asc cutoffs
+  trc_pass_ind = !is.na(ytotal) & (ytotal >= trc_cutoff)
+  asc_pass_ind = !is.na(y1) & !is.na(y2) & (y1 >= asc_cutoff) & (y2 >= asc_cutoff) & (y1 <= asc_cap) & (y2 <= asc_cap)
+
+  # prepare log y/lib
+  asc = y1 + y2
+  trc = ytotal
+  if(is.null(cov_offset)) {
+    logy = c(
+      log(y1 / y2),
+      log(trc / 2 / lib_size)
+    )
+  } else {
+    logy = c(
+      log(y1 / y2),
+      log(trc / 2 / lib_size) - cov_offset
+    )
+  }
+  # intercept
+  inpt = c(
+    rep(0, length(asc)),
+    rep(1, length(trc))
+  )
+  # prepare weight
+  weights = c(
+    1 / (1 / y1 + 1 / y2),
+    trc  # it is not really used as weight at downstream
+  )
+
+  # merge to df
+  df = data.frame(y = logy, inpt = inpt, weights = weights)
+  pass_qc_ind = c(asc_pass_ind, trc_pass_ind)
+  df = df[pass_qc_ind, , drop = F]
+  X = X[pass_qc_ind, , drop = F]
+  is_na = rowSums(is.na(df) | is.infinite(df$y)) > 0
+  df = df[!is_na, , drop = F]
+  X = X[!is_na, , drop = F]
+
+  # applying weight cap on ASC rows
+  if(!is.null(weight_cap)) {
+    weights_asc = df$weights[df$inpt == 0]
+    sample_size = sum(df$inpt == 0)
+    weight_cap = min(weight_cap, ceiling(sample_size / 10))
+    weight_cutoff = min(weights_asc) * weight_cap
+    weights_asc[weights_asc > weight_cutoff] = weight_cutoff
+    df$weights[df$inpt == 0] = weights_asc
+  }
+
+  # training
+
+  # dealing with asc
+  if(sum(df$inpt == 0) >= nobs_asc_cutoff) {
+    tilde_y1 = sqrt(df$weights[df$inpt == 0]) * df$y[df$inpt == 0]
+    tilde_x1 = sweep(X[df$inpt == 0, , drop = F], 1, sqrt(df$weights[df$inpt == 0]), FUN = '*')  # sweep(y, 1, x, FUN = '*')
+    s1_sq = calc_var(tilde_y1, tilde_x1)
+    X1 = tilde_x1 / sqrt(s1_sq)
+    Y1 = tilde_y1 / sqrt(s1_sq)
+  } else {
+    X1 = NULL
+    Y1 = NULL
+  }
+
+  # dealing with trc
+  x2 = X[df$inpt == 1, , drop = F]
+  y2 = df$y[df$inpt == 1]
+  s2_sq = calc_var(y2, x2, fixed_effect = matrix(1, nrow = nrow(x2), ncol = 1))
+  y2 = y2 / sqrt(s2_sq)
+  x2 = x2 / sqrt(s2_sq)
+  Y2 = y2 - mean(y2)
+  X2 = sweep(x2, 2, colMeans(x2), FUN = '-')
+
+  X = rbind(X1, X2)
+  Y = c(Y1, Y2)
+
+  # run susier with imputed y and X
+  mod = run_susie_default(X, Y, standardize = F, intercept = F)
+  return(mod)
+}
